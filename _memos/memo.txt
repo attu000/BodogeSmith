@@ -1,5 +1,6 @@
 http://localhost:8000/account/login
-uvicorn chatproject.asgi:application --reload --reload-include '*.html'
+venv\Scripts\python.exe -m daphne -b 127.0.0.1 -p 8000 BodogeSmith.asgi:application
+
 
 
 UNOpj 36 ClodeCodeによる整理整頓

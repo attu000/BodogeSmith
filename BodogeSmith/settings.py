@@ -29,7 +29,6 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'account.apps.AccountConfig',
-	'UNO.apps.UnoConfig',
     'game_factory.apps.GameFactoryConfig',
 ]
 
@@ -44,7 +43,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-ROOT_URLCONF = 'UNOpj.urls'
+ROOT_URLCONF = 'BodogeSmith.urls'
 
 TEMPLATES = [
     {
@@ -62,7 +61,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'UNOpj.wsgi.application'
+WSGI_APPLICATION = 'BodogeSmith.wsgi.application'
 
 
 # Database

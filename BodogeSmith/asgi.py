@@ -6,18 +6,17 @@ from channels.auth import AuthMiddlewareStack
 from django.core.asgi import get_asgi_application
 
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'UNOpj.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'BodogeSmith.settings')
 django.setup() # Djangoを初期化
 
-import UNO.routing
 import game_factory.routing
 
 
 application = ProtocolTypeRouter({
-    "http": get_asgi_application(), # 通常のHTTPリクエスト
-    "websocket": AuthMiddlewareStack( # WebSocketリクエスト
+    "http": get_asgi_application(),
+    "websocket": AuthMiddlewareStack(
         URLRouter(
-            game_factory.routing.websocket_urlpatterns #+ UNO.routing.websocket_urlpatterns 
+            game_factory.routing.websocket_urlpatterns
         )
     ),
 })
