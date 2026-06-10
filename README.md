@@ -1,18 +1,79 @@
 # BodogeSmith
 
-カスタムカードゲームを作成・プレイできる汎用マルチプレイヤーカードゲームフレームワークです。  
-ゲームのフィールドやカードをブラウザ上でデザインし、WebSocketによるリアルタイム対戦が可能です。
+**任意のカードゲームを設計・プレイできる汎用リアルタイムマルチプレイヤーフレームワーク**
+
+ゲームデザイナーがブラウザ上でフィールドとカードを設計し、複数人でリアルタイムにプレイできるWebアプリケーションです。UNO・トランプ・オリジナルカードゲームなど、任意のルールをフレームワーク上に載せて遊ぶことを目指しています。
+
+![ゲームプレイ画面](docs/images/1.png)
+![ゲームデザイン編集画面](docs/images/2.png)
 
 ---
 
-## 機能
+## 遊び方
 
-- ユーザー登録・ログイン
-- カードゲームのデザイン作成（フィールド・カード・レイアウトの設定）
-- パスワード付きルームの作成・参加
-- WebSocketによるリアルタイムマルチプレイヤーゲームプレイ
-- カードの移動・シャッフル・巻き戻し（Undo）
-- PC / モバイル対応UI
+### 1. ゲームを設計する（ゲームデザイナー）
+
+1. ログイン後、「ゲームを作成」からゲームデザイン編集画面に入る
+2. フィールドを追加する
+   - **パブリックフィールド**：全員が共有する場所（デッキ・捨て札など）
+   - **パーソナルフィールド**：プレイヤーごとの個別スペース（手札など）
+3. ブラウザ上でフィールドの座標・サイズ・カード枚数上限などを設定する
+4. カードを追加し、各カードの初期配置フィールドを指定する
+5. 設計完了後「公開」にするとルームで選択できるようになる
+
+### 2. 部屋を作ってゲームを始める
+
+1. ホームから「部屋を作成」→ パスワードを設定
+2. 他のプレイヤーに部屋名とパスワードを伝えて参加してもらう
+3. 全員が集まったら部屋のオーナーが「部屋を締め切る」→ ゲームプレイ画面へ移動
+4. ゲームマスター（部屋のオーナー）がゲームを選択してゲーム開始
+
+### 3. プレイ
+
+- カードをドラッグ＆ドロップでフィールド間を移動する
+- **自分のスマートフォンが手札**のようなイメージ：各プレイヤーの画面は一人称視点で構成される
+- 手札のカードは自分には表向き・相手には裏向きに見える（カードの visibility はプレイヤーごとに計算される）
+- 操作はすべてWebSocketで全員にリアルタイム同期される
+
+---
+
+## 工夫した点・技術的こだわり
+
+### 1. 三層 JSON 状態モデル（設計・配置・可視性の分離）
+
+ゲーム状態を責務ごとに3つのJSONフィールドに分離しています。
+
+| フィールド | 役割 |
+|---|---|
+| `_field_card_design_dict` | 各フィールドの**見た目**（座標・サイズ・枚数上限・反転設定） |
+| `_field_cardInfo_dict` | 各フィールドに**どのカードがあるか**（実際の配置） |
+| `_card_status_for_user_dict` | **各ユーザーから見た各カードの状態**（表/裏） |
+
+「誰が見ているか」によってカードの見た目が変わる問題を、配置情報（全員共通）と可視状態（ユーザーごと）を別テーブルに持つことで解決しました。WebSocket でクライアントに送信する前にサーバー側で「このユーザーに何を見せるか」を計算して送り分けています。
+
+### 2. Pydantic による Django JSONField の型安全化
+
+Django の `JSONField` は任意の dict を受け入れるため、スキーマが崩れても実行時まで気づけません。Pydantic モデルをキャッシュレイヤーとして挟むことでこれを解決しました。
+
+```
+DB (JSONField) ← save → Python dict
+                  ↑↓ parse_obj / model_validate
+              Pydantic Model (型・バリデーション保証)
+```
+
+データを読み出すたびに Pydantic モデル経由でアクセスし、書き込み時はバリデーターが通過した値のみ保存されます。
+
+### 3. 一人称視点の設計とプレイ時の自動変換
+
+ゲームデザイン時はデザイナーの一人称視点（自分が南に座っている想定）でフィールドを配置します。プレイ時は各プレイヤーの視点に合わせてフィールドレイアウトを自動変換するため、デザイナーは「自分から見た配置」だけを考えればよい設計です。
+
+### 4. 操作ログによる巻き戻し（Undo）
+
+全カード操作を `[関数名, 引数, 実行ユーザー, 説明文, 日時]` の形式でログに保存しています。`rewind()` は直近の操作を逆順に適用することで状態を復元します。
+
+### 5. WebSocket によるリアルタイム同期（Django Channels）
+
+Django の同期 View に加え、Django Channels + Daphne で ASGI サーバーを構成しています。カードの移動・シャッフルなどすべての操作はサーバー経由でルームの全参加者に broadcast されます。
 
 ---
 
@@ -21,12 +82,45 @@
 | 種別 | 技術 |
 |------|------|
 | バックエンド | Django 5.2.5 |
-| WebSocket | Django Channels 4.3.1 / Daphne |
-| データベース (開発) | SQLite3 |
-| データベース (本番) | PostgreSQL (Heroku) |
-| データバリデーション | Pydantic |
+| WebSocket | Django Channels 4.3.1 / Daphne (ASGI) |
+| データバリデーション | Pydantic v2 |
+| フロントエンド | Vue 3 (CDN) / HTML / CSS |
+| データベース（開発） | SQLite3 |
+| データベース（本番） | PostgreSQL（Heroku） |
 | 画像処理 | Pillow |
-| フロントエンド | HTML / CSS / JavaScript |
+
+---
+
+## データベース設計
+
+```
+GameDesign（ゲームテンプレート）
+├── _field_card_design_dict   : JSONField  フィールドの見た目・設定
+├── _init_field_cardInfo_dict : JSONField  カードの初期配置
+├── _cards                    : M2M → Card
+└── _player_limit             : int
+
+Game（ゲームインスタンス）
+├── _field_card_design_dict      : JSONField  フィールド設計のコピー
+├── _field_cardInfo_dict         : JSONField  リアルタイムのカード配置
+├── _card_status_for_user_dict   : JSONField  ユーザーごとのカード可視状態
+├── _game_log                    : JSONField  操作履歴（巻き戻し用）
+├── _players                     : M2M → User
+└── _cards                       : M2M → Card
+
+Card（カード）
+├── _name  : str
+└── _image : ImageField
+
+Room（プレイルーム）
+├── _game            : OneToOne → Game
+├── _playing_members : M2M → User
+├── _owner           : FK → User
+├── _password        : 暗号化済
+└── status           : OPEN / CLOSED
+```
+
+`GameDesign` がテンプレートで、ゲーム開始時に `Game` インスタンスとしてコピーされます。これにより、進行中のゲームに影響を与えずにテンプレートを編集できます。
 
 ---
 
@@ -34,125 +128,31 @@
 
 ### 必要環境
 
-- Python 3.11.4
-- pip
+- Python 3.11+
 
-### インストール手順
+### インストール
 
 ```bash
-# 1. 仮想環境の作成・有効化
 python -m venv venv
-venv\Scripts\activate  # Windows
+venv\Scripts\activate      # Windows
 # source venv/bin/activate  # Mac/Linux
 
-# 2. 依存パッケージのインストール
 pip install -r requirements.txt
-
-# 3. マイグレーションの実行
 python manage.py migrate
 
-# 4. 開発サーバーの起動（WebSocket対応）
+# WebSocket対応サーバーで起動
 daphne -b 127.0.0.1 -p 8000 UNOpj.asgi:application
 ```
 
 ### 環境変数
 
-プロジェクトルートに `.env` ファイルを作成し、以下を設定してください。
+`.env` ファイルをプロジェクトルートに作成してください。
 
 ```
 SECRET_KEY=your-secret-key-here
 ```
 
-### アクセス
-
-- アプリ: http://127.0.0.1:8000
-- 管理画面: http://127.0.0.1:8000/admin/
-
----
-
-## アプリ構成
-
-### `account` アプリ
-
-ユーザー認証を管理します。
-
-| URL | 機能 |
-|-----|------|
-| `/account/signup/` | ユーザー登録 |
-| `/account/login/` | ログイン |
-| `/account/logout/` | ログアウト |
-
-### `game_factory` アプリ
-
-カードゲームの作成・プレイを管理するメインアプリです。
-
-| URL | 機能 |
-|-----|------|
-| `/` | ホーム（ゲームデザイン一覧） |
-| `/rooms/create/` | ルーム作成 |
-| `/rooms/join/` | ルーム参加 |
-| `/rooms/waiting/<room_id>/` | 待機ロビー |
-| `/rooms/playing/<room_id>/` | ゲームプレイ画面 |
-| `/rooms/create_game_design/` | ゲームデザイン作成 |
-| `/rooms/edit_game_design/<id>/` | ゲームデザイン編集 |
-| `/rooms/choice_game/<room_id>/` | プレイするゲームの選択 |
-
-#### WebSocket エンドポイント
-
-| URL | 機能 |
-|-----|------|
-| `ws/game_factory/rooms/waiting/<room_id>/` | 待機ロビーのリアルタイム通信 |
-| `ws/game_factory/rooms/playing/<room_id>/` | ゲームプレイのリアルタイム通信 |
-
----
-
-## ゲームデザインの仕組み
-
-### フィールドの種類
-
-- **パブリックフィールド**: 全プレイヤーが共有するフィールド（デッキ・捨て札など）
-- **パーソナルフィールド**: プレイヤーごとに個別のフィールド（手札など）
-
-### カードの管理
-
-- カードはフィールド間を `move_card_fromAtoB()` で移動
-- `shuffle()` でフィールドのカードをシャッフル
-- 全操作はログに記録され `rewind()` で巻き戻し可能
-- カードの表示はプレイヤーごとに制御可能
-
-### ゲームデザイン API
-
-**POST** `/rooms/update_game_design/<id>/`
-
-`action` パラメータで操作を指定します。
-
-| action | 内容 |
-|--------|------|
-| `update_basic_info` | ゲーム名・プレイヤー上限の更新 |
-| `add_new_card` | カードの追加（画像対応） |
-| `update_card` | カードの編集 |
-| `update_card_initial_field` | カードの初期配置設定 |
-| `add_personal_field_type` | パーソナルフィールド種別の追加 |
-| `add_public_field_type` | パブリックフィールド種別の追加 |
-| `add_virtual_personal_field` | 仮想パーソナルフィールドの追加 |
-| `add_virtual_public_field` | 仮想パブリックフィールドの追加 |
-| `update_virtual_field` | フィールドのレイアウト・表示設定の変更 |
-| `publish_change` | ゲームの公開・非公開切り替え |
-
-**GET** `/rooms/get_game_design_data/<id>/`
-
-ゲームデザインの全データ（フィールド・カード・レイアウト）をJSONで返します。
-
----
-
-## デプロイ (Heroku)
-
-```bash
-# Procfile に記載されたコマンドで起動
-daphne -b 0.0.0.0 -p $PORT UNOpj.asgi:application
-```
-
-本番環境では `DATABASE_URL` 環境変数により PostgreSQL に自動接続します。
+アクセス: http://127.0.0.1:8000
 
 ---
 
@@ -160,17 +160,11 @@ daphne -b 0.0.0.0 -p $PORT UNOpj.asgi:application
 
 ```
 BodogeSmith/
-├── UNOpj/              # プロジェクト設定 (settings, urls, asgi)
-├── account/            # ユーザー認証アプリ
-├── game_factory/       # メインゲームアプリ
-│   ├── models/         # Room, Game, GameDesign, Card モデル
-│   ├── consumers/      # WebSocket コンシューマー
-│   ├── templates/      # HTMLテンプレート
-│   └── static/         # JS / CSS (PC・モバイル対応)
-├── UNO/                # UNO レガシーアプリ
-├── static/             # 共通静的ファイル
-├── media/              # アップロード画像
-├── requirements.txt
-├── Procfile
-└── runtime.txt
+├── UNOpj/           # プロジェクト設定（settings, urls, asgi）
+├── account/         # ユーザー認証
+└── game_factory/    # メインアプリ
+    ├── models/      # Game / GameDesign / Room / Card + Pydanticモデル群
+    ├── consumers/   # WebSocketコンシューマー（待機室・プレイルーム）
+    ├── templates/   # HTML（PC・モバイル対応）
+    └── static/      # Vue.js + カスタムJS
 ```
