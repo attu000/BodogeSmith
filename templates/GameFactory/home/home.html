@@ -1,0 +1,22 @@
+{# home.html #}
+<h1>Home</h1>
+
+{% if user.is_authenticated %}
+    <a>UserName: {{ user.username }} |</a>
+    <a href="{% url 'logout' %}">ログアウト</a>
+    <hr>
+    <a href="{% url 'game_factory:create_room' %}">部屋を作る</a>
+    <a href="{% url 'game_factory:join_room' %}">部屋に参加</a>
+    <a href="{% url 'game_factory:create_game_design' %}">ゲームを作る</a>
+{% else %}
+    <a>Unknown User |</a>
+    <a href="{% url 'login' %}">ログイン</a>
+    <a href="{% url 'signup' %}">新規登録</a>
+    <hr>
+{% endif %}
+
+
+{% for game_design in game_designs %}
+<br>
+<a href="{% url 'game_factory:edit_game_design' game_design.id %}">{{game_design.name}}</a>
+{% endfor %}

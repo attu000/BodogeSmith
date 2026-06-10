@@ -1,0 +1,15 @@
+{# home.html #}
+<h1>Home</h1>
+
+{% if user.is_authenticated %}
+    <a>UserName: {{ user.username }} |</a>
+    <a href="{% url 'logout' %}">ログアウト</a>
+    <hr>
+    <a href="{% url 'create_room' %}">部屋を作る</a>
+    <a href="{% url 'join_room' %}">部屋に参加</a>
+{% else %}
+    <a>Unknown User |</a>
+    <a href="{% url 'login' %}">ログイン</a>
+    <a href="{% url 'signup' %}">新規登録</a>
+    <hr>
+{% endif %}

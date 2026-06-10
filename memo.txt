@@ -1,0 +1,411 @@
+http://localhost:8000/account/login
+uvicorn chatproject.asgi:application --reload --reload-include '*.html'
+
+
+UNOpj 36 ClodeCodeによる整理整頓
+
+
+
+
+UNOpj35:
+課題：
+・Edit画面でtarget_playerを選択する。
+#バリデーターをsetで作動させたい
+・FCIを送る。
+・それを表示する。
+・moveなどを設計する。
+
+
+
+
+UNOpj34:
+課題：
+・FieldCardDesignDict：変化なし
+・FieldCardInfoModel：変化なし
+・FieldCardInfoToSend: 変更なし
+・Card_Status_For_user: 新しく作る。
+
+#Pubilicfieldがfieldを一つだけ持つようにする必要があり。
+#Personalfieldはplayerfrom, playertoがかぶらないように作る必要がある。
+
+Game；
+・initilizeを改良
+・field_card_info_dict_for_user:改良。
+
+
+
+
+UNOpj33:
+課題：
+
+・GameFactoryでfcs_for_user_cacheobjを生成
+・to_send情報を作成する方法確率
+・Move関数などで、変更したら、３つのcacheobj情報の一部変更の方法を確立する。
+
+
+
+UNOpj32:
+課題：
+GameDesign：
+・FieldCardDesignDict：Persnoal,Publicそれぞれの中に実在フィールドの種類を登録して、その中に仮想フィールドとそののステータスを定義。
+
+Game：
+・FieldCardInfoDict：実在フィールドをプレイヤー人数などに応じて生成して、その中に、カード情報を保存しておく。
+・FieldCardStatusForUserDict；カード一枚ずつのステータスをプレイヤーごとに管理する。
+・FieldCardSendInfoForUserDict：実際に送るカード情報とカードステータス情報をユーザーごとにまとめたもの。
+
+
+・GameDesign：
+・・FieldCardDesignDictまわり
+・・FieldCardInfoDictを代わりに使う
+
+・GameFactor：
+
+・views:
+・add_**fieldはfield_typeを増やすだけにして、
+・add_virtual_personal_fieldなどを作る。
+・update_fieldも変える必要あり？
+・HTMLでは①まずFieldTyepを追加して、各Fieldタイプ上でFieldを追加する。
+
+
+
+
+
+UNOpj31:
+課題：
+・init_card_num削除
+・Cardの表示方法で裏か表かを自由に変更できるようにしたい。reversibleを追加。self_visible追加
+・Reverce＝Trueは処理状態で裏になっているか表になっているかを表すすてーたすにする。
+・reversible＝Trueなら皆が裏表を自由に変更できる
+・Personalなら
+・FieldCardIDDictでは足りない情報（それぞれのカードが誰から見て裏か表かとか）
+を保持するために新しいFieldCardInfoModelを作成
+・game_factoryを変更
+・Playing_roomには以下のように送る。
+Public：
+・FieldCardInfoModelのReverce情報をみてFalseならば情報をdisplay_card_maxnumまで送る
+
+Personal:
+・player_fromとplayer_toをみて自分が含まれている：
+　・self_visible=True:
+    ・データを送るdisplay_card_maxnumまで送る
+　・self_vibible=false:
+    ・データはReverce情報を見て送る。
+・player_fromなどに自分が含まれていない。
+　・Reverce情報に基づいて送る
+
+
+
+UNOpj30:
+課題：
+・各PublicFieldにカードを登録できるようにしてGame開始時はそれに応じてCard＿Field＿Dataをつくる。init_field_card_dictとして登録
+・init_field_cardID_dictのPydanticを設定←field_card_design_dictと同じFieldを持っているかのチェックバリデーターあり
+・add_private/public_fieldをするたびにこれにも追加する。
+・カード追加場所にどのpublicフィールドに入れるかも選べる欄を作る。
+・register/unregister_card_to_public()を追加。
+
+
+
+UNOpj29:
+課題：
+・ゲーム編集画面追加　DONE!
+・保存方法要検討
+・カード編集画面追加
+・GameDesignからGameにする
+・choice-Game->Gamechoice画面表示→ゲーム選択→GameChoiceがIDとともにConsumersへ、→ConsumersでGameDesignからGameへ。そして、Roomに登録して情報を送る。DONE!
+
+
+
+UNOpj26 2025/09/10
+課題：
+HTML
+・Homeにcreate_gameボタン
+・EditGameDesign.html実装
+・疑似のfield_card_design_dataを作成
+#
+・viewsからfield_card_design_dataを送られてそれに対応してfieldを配置
+・Consumers.pyからfiled_cardID_dataから編成されたCard情報送るJSON（とりあえず画像なしで情報だけ送る）
+・送られてきた情報をもとにCardを配置していく
+・移動を実装
+・シャッフルを実装
+
+
+LOG:
+・WaitingRoomCousumers実装
+・PlayingRoomConsumers作らなきゃ
+・とりあえずPlayingのJS,HTML、Consumersに対して
+・・field_card_Designが送られてきたらそれをもとにfieldを設定
+・・field_cardInfoが送られてきたらそれをもとにCardを生成
+ここまではできた。
+・おくるCard情報はGame上で辞書型にして生成。
+・reverceの場合は内容は表示せずに背景を移すように
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+UNOp25 2025/09/08
+課題：
+汎用的なカードゲームアプリを作る。
+
+LOG:
+・game_factoryアプリを作成
+・UNOｐｊのurls.pyとつなげる
+・Modelを作る。
+・UNOのapps.pyを変更
+class UnoConfig(AppConfig):
+    default_auto_field = 'django.db.models.BigAutoField'
+    name = 'UNO'
+・GameDesign,Game,を実装。
+・実装にはJSONFieldがあるためPydanticを利用。
+・GameFactoryClassを実装
+・Views.pyを修正
+・
+
+
+
+
+UNOpj23 2025/06/20:
+課題：
+・スマホ用にする
+LOG:
+・JSをスマホ用とPC用で分離する。
+・
+
+
+
+UNOpj22 2025/06/20:
+LOG:
+・CSSを生成してもらってあてがう
+・
+
+UNOpj21 2025/06/19:
+課題：
+・DONE!　各カードが⓪枚の時にエラーが起きないようにする
+・関係ないところをクリックすると「シャッフルが消える」
+LOG：
+・疑似シャッフルを導入
+
+
+
+
+UNOpj20 2025/06/18:
+課題：
+・場所関係なくjsで同じ関数でカードを行き来できるようにしたい。
+LOG：
+・DONE!　手札、場札、山札間で自由にカードを行き来できるようにする。
+・
+
+
+
+
+UNOpj19 2025/06/18:
+課題：
+・もっと自由にカードを行き来できるようにしたい。
+ある場所にあるあるカード群を選択して、それらをある場所のある位置に入れ込む。
+・DONE! やはりまずはドラッグ＆ドロップで入れられるようにするべきか
+
+LOG:
+・■でカードを表示させたい
+・staticファイル生成
+・手札から場札へのdrag_and_dropは成功
+
+
+
+
+UNOpj18 2025/06/18:
+課題：
+・DONE!　巻き戻しボタン。
+・山札がなくなった時の対処
+・DONE!　log表示
+・部屋破棄ボタン
+・アニメーション
+・長押ししたら内容をfieldの見れるようにする
+
+LOG:
+・オーナーだけが使える巻き戻しボタンをつけよう。
+・そのためにloggを記録して、そのloggを頼りに巻き戻しをした。
+・
+
+
+
+
+UNOpj16 2025/06/17:
+課題：
+・ボタンを押したらカードが移動する。
+・CSSによってカードを四角として表示する。
+・ドラッグアンドドロップで移動させることをしたい。
+・捨て札、山札、手札を用意する。
+・移動させたらデータベースが変更を記録して、場面を一新する。
+
+LOG:
+・どうやらsave()してもすぐには反映されないようで取得した情報が古いものになってしまっているようだった。
+・新しいデータ更新をするときに、consumers.pyのself.room_gameを取得しなおしたらうまくいった。
+
+
+
+
+
+UNOpj15 2025/06/15:
+課題：
+・DONE!　ユーザーによって表示させる手札を変更する。
+・ボタンを押したらカードが移動する。
+・CSSによってカードを四角として表示する。
+・ドラッグアンドドロップで移動させることをしたい。
+・捨て札、山札、手札を用意する。
+・移動させたらデータベースが変更を記録して、場面を一新する。
+
+LOG:
+・ユーザーによって表示させる手札を選択するのはバックでユーザーに送るカードを制限したほうがいいのか、フロントでユーザーに見せるカードを制限したほうがいいのか迷ったが、バックのほうが現実と近い気がするのでバックでカードを選択することとする。フロントにデータ全て送ると最悪開発者ツールですべて見えてしまうので
+・ユーザーに送るのは「自分の手札」「各プレイヤーの名前とカード枚数」「場札のカード」「今誰のターンか」くらいしか送らない
+・ユーザーごとに必要なデータを送る関数をmodelに組み込む
+・ゲームを新しくinitしてくれない
+
+
+UNOpj14 2025/06/13:
+課題：
+・DONE!　Cardを実装したい
+・DONE!　Unoを実装したい。
+
+LOG:
+・Cardを実装
+・Game（当初名前がUNOだったもの）を実装
+・playing_consumerでcardをリアルタイム更新。
+・JSONとして渡せる型に限りがあったので、Game情報はすべてDictに入れて渡すことにする
+・Card。pkによってどのカードが押されたかを管理しているが、ゆくゆくはGame　Modelが持っている何番目のカードが～みたいにした方が検索の手間が省けるのではいないかと思っている
+
+
+
+
+UNOpj13 2025/06/10:
+課題：
+・DONE!　大体部屋はできた。しかしplaying_roomからかえったり、移動したりを繰り返すとオーナーがいるのにstatusがcloseになり、入れなくなることがある。
+
+
+LOG:
+・DONE！statusじゃなくてオーナーがwaiting_memberにいるかどうかで入れるかどうかを判断するようにしたい。
+・room_docを作成してそれ通りに実装。
+
+
+
+UNOpj12 2025/06/10:
+・大体部屋はできた。しかしplaying_roomからかえったり、移動したりを繰り返すとオーナーがいるのにstatusがcloseになり、入れなくなることがある。
+
+
+
+UNOpj11 2025/06/10:
+目標：
+・DONE! オーナーがplaying roomから離れるとplayingroomからみんな締め出されて、playingmember=[]となる
+・playingmemberに登録されている場合はwaitingroomをすっ飛ばしてplayingroomに移動可能。
+
+課題：
+・DONE!　オーナーがPlaytingRoomに移動するとき、と、それ以外の接続切り、で区別がついていない。→どちらもHisotryBack命令を皆に送ってしまっている。
+
+LOG：
+・intentional_disconnectを取り入れて意図したものかどうかを識別した。
+・DONE!　setTimeout(() => {
+              window.location.href = data.url;
+          }, 150);
+があるとどうやらオーナーのみ今いる場所にredirectしていまい、playing_roomに行かない、なぜ？
+・↑どうやらHTMLのtype=submitにするとリロードされてしまうらしい。type=buttonかe.preventDefault();をする必要があった。
+
+
+
+
+UNOpj10 2025/06/09:
+目標：
+・DONE! joinからwaiting_roomに入らないと入れないようにする
+・DONE! waiting_roomから入らないとplaying_roomに入れないようにする
+・オーナーがplaying roomから離れるとplayingroomからみんな締め出されて、playingmember=[]となる
+・playingmemberに登録されている場合はwaitingroomをすっ飛ばしてplayingroomに移動可能。
+
+
+LOG：
+・DONE!　waiting_roomからownerが消えるとstatusがcloseになり、一つ前に遷移してしまうのでそこはどうにかしたい。→historyback命令がフロントに届く前にUNOpageに行っているのでOK
+・consumerをファイルにして分割した
+
+
+
+UNOpj09  2025/06/09:
+目標：
+・DONE!　waiting_roomにいけるのはオーナーがwaitingroomで通信している時だけ。
+・DONE! オーナーがwaiting_roomから消えたら全員が一つ前に遷移する。
+・DONE! 他のメンバーはオーナーがwaitingroomにいるときにwaitingroomに入れる。その時にwaiting memberに登録される
+・DONE! オーナーがplaying roomに移動すると、playing_member = waiting_memberとなってメンバー確定。
+
+
+LOG:
+・waiting_membersとplaying_membersを追加
+・以下のように設定
+ closed:オーナーがwaiting,playingroomどちらにもいない
+ waiting:オーナーがwaiting roomにいる
+ playing:オーナーがplaying roomにいる
+
+
+
+UNOpj08  2025/06/08:
+目標：Model内の変数をアクセス制限を加える。
+・変数名の参照によるエラーは解消済み
+・部屋を閉め切ってplaying roomへ遷移した後に、再びwaitingroomに戻るとsutatusがplayingになっているという問題。
+
+
+UNOpj07  2025/06/08:
+目標：Model内の変数をアクセス制限を加える。
+・どうやら.forms.pyで変数名が変更できてないことが原因のようだった。
+django.core.exceptions.FieldError: Unknown field(s) (name) specified for Room
+・06でうまくいったので06を08にコピーして編集する。（まだ名前を変えただけで様々なところで参照エラーが起きると思うので）
+
+UNOpj06  2025/06/08:
+目標：Model内の変数をアクセス制限を加える。
+・急にrunserverできなくなった。→一度ターミナルを閉じたらうまくいった。
+・変数名を一括で変えたらエラーが起きた、データベース上でうまく動かなそうだったので05から07を作ってやり直す。
+
+
+
+UNOpj05  2025/06/08:
+GOAL:「部屋を閉め切るボタン」を押したらメンバーが確定して、強制的にuno.htmlに飛ばされる。
+・飛ばされるボタン作成、機能も作成
+・htmlを状態ごとに分割、ファイルも別に保存。urlも変更
+・なぜかroom_memberが非同期的に変更されなくなる
+↑解決：ws.onmessageが二つあって一つが上書きされていた。
+・room.ownerが非同期的に取得できてない感じがしたので、@database_sync_to_async関数内で取得するようにする
+・閉め切るボタンと、それに伴う移動を実装完了
+・
+
+
+
+UNOpj04＿2025/06/07:
+waiting_roomにwebsocketsを実装して、weitingroomの画面から外れたら、room memberから自動で外れるようにする。
+
+
+UNOpj03＿2025/06/07:
+room実装。
+Homeに「ログイン・ログアウト・新規作成」、「部屋を作る」「部屋に参加」を実装
+
+「部屋を作る」「部屋に参加」から「wating room」に移動。
+
+
+
+
+2025/06/07:
+logout後にHomeに戻るようにした
+modelファイルを作ってパッケージにした。
+
+
+2025/06/07:
+room実装
+websocketsは使っていない、HTTPでログインしたり部屋に入ったり。若干部屋に入る部分で未実装部分もあり・
+しかし、websocketsを用いた通信を実行することにする。ので一時中断。
+
+
+2025/06/06:
+account実装

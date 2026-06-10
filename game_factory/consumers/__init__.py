@@ -1,0 +1,2 @@
+from .waiting_room_consumer import GameFactoryWaitingRoomConsumer
+from .playing_room_consumer import GameFactoryPlayingRoomConsumer

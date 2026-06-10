@@ -1,0 +1,138 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="ja"> 
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+        <title>カードゲーム！</title>
+
+         
+    </head>
+
+    <body>
+        <a>UserName: {{ user.username }} |</a>
+        <h2>部屋: {{ room.name }}</h2>
+        <p>オーナー: {{ room.owner.username }}</p>
+        {% if user == room.owner %}
+        <a id="choice_game">ゲームを選ぶ</a>
+        <a id="test_move">TEST_MOVE</a>
+        {% endif %}
+
+        <!--Vue-->
+        <div id="field_card_design_app">
+            <div id="game-container">
+                <!--category-->
+                <template v-for="(fieldTypes, category) in field_card_design">
+                    <!--field_type-->
+                    <template v-for="(fields, fieldTypeName) in fieldTypes">
+                        <!--field-->
+                        <div v-for="(field, fieldName) in fields"
+                            :key="fieldName"
+                            :id="fieldName"
+                            :class="['field', category.toLowerCase()]"
+                            :style="{
+                                left: field.design.position[0] + 'px', 
+                                top: field.design.position[1] + 'px',
+                                width: field.design.dimensions[0] + 'px',
+                                height: field.design.dimensions[1] + 'px'
+                            }"
+                            :data-field-type="category"
+                            :data-card-num-limit="field.card_num_limit.join(',')"
+                            :data-display-max="field.design.display_card_maxnum"
+                            :data-reversible="field.design.reversible"
+                            :data-init-reverse="field.design.init_reverse"
+                            @dragover.prevent="category=='Public'? handleDragOver: null"
+                            @drop="category === 'Public' ? handleDrop($event, [category, fieldTypeName]) : null">
+
+                            
+                            <template v-if="field_cardInfo[category] && field_cardInfo[category][fieldTypeName] && field_cardInfo[category][fieldTypeName][fieldName]">
+                                <!--Public-->
+                                <template v-if="category === 'Public'">
+                                    <!--card-->
+                                    <div v-for="card in field_cardInfo[category][fieldTypeName][fieldName]" 
+                                    :key="card"
+                                    class="card"
+                                    :class="{ 'is-reverse': card.card_status_dict.reverse }"
+                                    draggable="true"
+                                    @dragstart="handleDragStart($event, card.card_info_dict.card_id, [category, fieldTypeName])">
+                                    [[card.card_info_dict.card_name]]
+                                    </div>
+                                </template>
+
+                                <!--Personal-->
+                                <template v-if="category === 'Personal'">
+                                    <!--user-->
+                                    <div v-for="(card_list ,user_id) in field_cardInfo[category][fieldTypeName][fieldName]"
+                                    :key="user_id"
+                                    class="personal_user_field"
+                                    @dragover.prevent="category=='Personal'? handleDragOver: null"
+                                    @drop="category === 'Personal' ? handleDrop($event, [category, fieldTypeName, user_id]) : null"
+                                    >
+                                        <!--card-->
+                                        <div v-for="card in card_list" 
+                                        :key="card"
+                                        class="card"
+                                        :class="{ 'is-reverse': card.card_status_dict.reverse }"
+                                        draggable="true"
+                                        @dragstart="handleDragStart($event, card.card_info_dict.card_id, [category, fieldTypeName, user_id])">
+                                        [[card.card_info_dict.card_name]]
+                                        </div>
+                                    </div>
+                                </template>
+                            </template>
+                        </div>
+                    </template>
+                </template>
+            </div>
+        </div>
+
+
+
+
+        <!--choice-game-panel-->
+        <div id="choice_panel" style="display: none;">
+            {% for game_design in game_designs %}
+                <br>
+                <a id="game_{{ game_design.id }}">{{game_design.name}}</a>
+            {% endfor %}
+        </div>
+
+        {{ room.id|json_script:"room-id" }}
+    </body>
+
+
+    <script>
+        (function() {
+            // PC用とスマホ用のJSファイルのパスをDjangoのstaticタグで取得
+            const pc_script_url = "{% static 'GameFactory/playing_room/playing_room_pc.js' %}";
+            const sp_script_url = "{% static 'GameFactory/playing_room/playing_room_sp.js' %}";
+            const pc_css_url =    "{% static 'GameFactory/playing_room/playing_room_pc.css' %}";
+            const sp_css_url =    "{% static 'GameFactory/playing_room/playing_room_sp.css' %}";
+
+
+            // 画面幅が768pxより大きい場合はPCと判定 (この値は調整可能です)
+            const isPC = window.matchMedia('(min-width: 769px)').matches;
+
+            // タグを動的に生成
+            const script = document.createElement('script');
+            const css = document.createElement('link');
+            css.rel="stylesheet";
+            
+            if (isPC) {
+                script.src = pc_script_url;
+                css.href = pc_css_url;
+                console.log("PC用のJavaScriptを読み込みます。");
+            } else {
+                script.src = sp_script_url;
+                css.href = pc_css_url;
+                console.log("スマートフォン用のJavaScriptを読み込みます。");
+            }
+
+            // bodyの末尾にタグを追加して実行
+            document.body.appendChild(script);
+            document.body.appendChild(css);
+        })();
+    </script>
+</html>

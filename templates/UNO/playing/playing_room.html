@@ -1,0 +1,71 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>カードゲーム！</title>
+
+    
+    </head>
+<body>
+
+
+  <h2>部屋: {{ room.name }}</h2>
+  <h2>Game: {{ room_game.game_name }}</h2>
+  <div id="place_card">
+    <div id="myself" class="card-container-class"></div>
+    <div id="field" class="card-container-class"></div>
+    <div id ='deck' class="card-container-class"></div>
+  </div>
+
+  <div id="others"></div>
+
+
+  {% if user == room.owner %}
+  <form>
+    <button type="button" id="restart">リスタート</button>
+    <button type="button" id="rewind">巻き戻す</button>
+  </form>
+  {% endif %}
+
+
+  <div id="log"></div>
+
+ 
+
+ {{ room.id|json_script:"room-id" }}
+<script>
+        (function() {
+            // PC用とスマホ用のJSファイルのパスをDjangoのstaticタグで取得
+            const pc_script_url = "{% static 'UNO/playing_room/playing_room_pc.js' %}";
+            const sp_script_url = "{% static 'UNO/playing_room/playing_room_sp.js' %}";
+            const pc_css_url =    "{% static 'UNO/playing_room/playing_room_pc.css' %}";
+            const sp_css_url =    "{% static 'UNO/playing_room/playing_room_sp.css' %}";
+
+
+            // 画面幅が768pxより大きい場合はPCと判定 (この値は調整可能です)
+            const isPC = window.matchMedia('(min-width: 769px)').matches;
+
+            // タグを動的に生成
+            const script = document.createElement('script');
+            const css = document.createElement('link');
+            css.rel="stylesheet";
+            
+            if (isPC) {
+                script.src = pc_script_url;
+                css.href = pc_css_url;
+                console.log("PC用のJavaScriptを読み込みます。");
+            } else {
+                script.src = sp_script_url;
+                css.href = pc_css_url;
+                console.log("スマートフォン用のJavaScriptを読み込みます。");
+            }
+
+            // bodyの末尾にタグを追加して実行
+            document.body.appendChild(script);
+            document.body.appendChild(css);
+        })();
+    </script>
+</body>
+</html>

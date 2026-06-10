@@ -1,0 +1,182 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <title>ゲームデザイン編集</title>
+    <link rel="stylesheet" href="{% static 'GameFactory/home/edit_game_design.css' %}">
+    <link rel="stylesheet" href="{% static 'GameFactory/playing_room/playing_room_pc.css' %}">
+</head>
+<body>
+
+<div id="game-editor-app" data-game-design-id="{{ game_design.id }}">
+
+    <!--ゲームプレビュー-->
+    <div id="game-container">
+        <div v-if="gameDesign.field_card_design" class="game-board">
+            <template v-for="(fieldTypes, category) in gameDesign.field_card_design">
+                <template v-for="(fields, fieldTypeName) in fieldTypes">
+                    <div v-for="(field, fieldName) in fields"
+                        :key="fieldName"
+                        class="field"
+                        :class="[category.toLowerCase(), { 'is-selected': selectedField === fieldName }]"
+                        :style="{
+                            left: field.design.position[0] + 'px',
+                            top: field.design.position[1] + 'px',
+                            width: field.design.dimensions[0] + 'px',
+                            height: field.design.dimensions[1] + 'px'
+                        }"
+                        @click="selectField(fieldName, fieldTypeName, category)"> 
+                        <span class="field-name-label">[[ fieldName ]]</span>
+                    </div>
+                </template>
+            </template>
+        </div>
+    </div>
+
+    <!--編集パネル全体-->
+    <div class="editor-container">
+        <div v-if="feedback.visible" class="message" :class="feedback.type">
+            [[ feedback.message ]]
+        </div>
+        
+        <!--詳細編集パネル-->
+        <div v-if="editingFieldData" class="field-editor-panel">
+            <h3><input :value="selectedField" readonly> の編集</h3>
+            <fieldset>
+                <legend>フィールド詳細</legend>
+                <div v-if="selectedFieldCategory==='Personal'">
+                </div>
+                <div class="form-group">
+                    <label>おけるカード枚数下限:</label>
+                    <input type="number" v-model.number="editingFieldData.card_num_limit[0]">
+                </div>
+                <div class="form-group">
+                    <label>おけるカード枚数上限:</label>
+                    <input type="number" v-model.number="editingFieldData.card_num_limit[1]">
+                </div>
+            </fieldset>  
+            <fieldset>
+                <legend>デザイン</legend>
+                <div class="form-group">
+                    <label>位置 X:</label>
+                    <input type="number" v-model.number="editingFieldData.design.position[0]">
+                </div>
+                <div class="form-group">
+                    <label>位置 Y:</label>
+                    <input type="number" v-model.number="editingFieldData.design.position[1]">
+                </div>
+                <div class="form-group">
+                    <label>幅 (Width):</label>
+                    <input type="number" v-model.number="editingFieldData.design.dimensions[0]">
+                </div>
+                <div class="form-group">
+                    <label>高さ (Height):</label>
+                    <input type="number" v-model.number="editingFieldData.design.dimensions[1]">
+                </div>
+            </fieldset>
+            <div class="panel-buttons">
+                <button @click="saveVirtualFieldChanges">保存</button>
+                <button @click="selectedField = null">閉じる</button>
+            </div>
+        </div>
+        
+        <!--基本情報編集パネル-->
+        <div v-else id="basic-editor">
+            <fieldset>
+                <legend>基本情報</legend>
+                <div class="form-group">
+                    <label>ゲーム名:</label>
+                    <input type="text" v-model="gameDesign.name">
+                </div>
+                <div class="form-group">
+                    <label>プレイヤー上限:</label>
+                    <input type="number" v-model.number="gameDesign.player_limit" min="1">
+                </div>
+                <button @click="saveBasicInfo">基本情報を保存</button>
+            </fieldset>
+
+
+            <fieldset>
+                <legend>カード</legend>
+                <ul id="card-list">
+                    <li v-for="card in gameDesign.cards" :key="card.id">
+                        <span>[[ card.name ]]</span>
+                        <img :src="card.image_url" :alt="card.name" width="40">
+                        <select v-model="card.initial_field" @change="updateCardInitialField(card)">
+                            <option v-for="(fieldType, fieldTypeName) in gameDesign.field_card_design.Public" 
+                                    :key="fieldTypeName"
+                                    :value="fieldTypeName">
+                                [[ fieldTypeName ]]
+                            </option>
+                        </select>
+                    </li>
+                </ul>
+                <div class="form-group-inline">
+                    <input type="text" v-model="newCardName" placeholder="新しいカード名">
+                    <input type="file" id="new-card-image">
+                    <button @click="addCard">カードを追加</button>
+                </div>
+            </fieldset>
+
+            <fieldset>
+                <legend>フィールド</legend>
+                <ul id="field-list">
+                    <!--Category-->
+                    <li v-for="(categoryDict, categoryName) in gameDesign.field_card_design" :key="categoryName">
+                        <fieldset>
+                            <legend>[[ categoryName ]]</legend>
+
+                            <ul>
+                                <!--FieldType-->
+                                <li v-for="(fieldTypeDict, fieldTypeName) in categoryDict" :key="fieldTypeName">
+                                    <span><strong>[[ fieldTypeName ]]</strong></span>
+                                    <hr>
+
+                                    <ul>
+                                        <!--Field-->
+                                        <li v-for="(fieldDict, fieldName) in fieldTypeDict" :key="fieldName">
+                                            <span>[[ fieldName ]]</span>
+                                        </li>
+                                    </ul>
+                                    <div class="form-group-inline">
+                                        <input type="text" v-model="newFieldName" placeholder="新しいフィールド名">
+                                        <div v-if="categoryName === 'Personal'" class="target-selector">
+                                            <label>対象:</label>
+                                            <input type="checkbox" id="target-myself" v-model="newFieldTargets.myself">
+                                            <label for="target-myself">myself</label>
+                                            <input type="checkbox" id="target-others" v-model="newFieldTargets.others">
+                                            <label for="target-others">others</label>
+                                        </div>
+                                        <button @click="addVirtualField(categoryName, fieldTypeName)">仮想フィールド追加</button>
+                                    </div>
+                                </li>
+                            </ul>
+
+                            <div class="form-group-inline">
+                                <input type="text" v-model="newFieldTypeName" placeholder="新しいフィールド種類名">
+                                <button @click="addFieldType(categoryName)">[[ categoryName ]]フィールド種類追加</button>
+                            </div>
+                        </fieldset>
+                    </li>
+
+                </ul>
+            </fieldset>
+
+            <fieldset>
+                <legend>公開設定</legend>
+                <p>現在の状態: <span id="publish-status">[[ gameDesign.published ? '公開中' : '非公開' ]]</span></p>
+                <button @click="publishChange('publish')">公開する</button>
+                <button @click="publishChange('unpublish')">非公開にする</button>
+            </fieldset>
+        </div>
+    </div>
+
+    {% csrf_token %}
+
+</div>
+<script src="{% static 'GameFactory/home/edit_game_design.js' %}"></script>
+</body>
+</html>

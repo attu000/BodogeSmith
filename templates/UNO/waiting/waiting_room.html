@@ -1,0 +1,80 @@
+
+
+{% block content %}
+  <a>UserName: {{ user.username }} |</a>
+  <h2>部屋: {{ room.name }}</h2>
+  <p>オーナー: {{ room.owner.username }}</p>
+
+  <h3>待機メンバー</h3>
+  <ul id="waiting_members"></ul>
+
+   <h3>メンバー</h3>
+  <ul id="playing_members"></ul>
+  
+
+
+  {% if user == room.owner %}
+  <form>
+    <button type="button" id="move_to_playing_room">部屋を閉め切る</button>
+  </form>
+  {% endif %}
+
+
+{% endblock %}
+
+
+
+
+
+
+<script>
+    const room_id = '{{ room.id }}';
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const ws = new WebSocket(protocol + '//' + window.location.host + '/ws/rooms/waiting/' + room_id + '/');
+
+
+    //close room buttonをオーナーが押したら
+    const move_to_playing_room = document.getElementById('move_to_playing_room');
+    if(move_to_playing_room){
+      move_to_playing_room.addEventListener("click", function() {
+        if(confirm("メンバーを確定しますか？")){
+          ws.send(JSON.stringify({
+            'type':'move_to_playing_room',
+          }))
+        }
+      });
+    }
+
+
+    //messageを受け取ったら
+    ws.onmessage = function(e) {
+        const data = JSON.parse(e.data);
+        console.log(data);
+        
+        // 部屋を閉め切ってredirect
+        if (data.type === 'redirect') {
+          setTimeout(() => {
+              window.location.href = data.url;
+          }, 150);
+        
+        //メンバーアップデート
+        }else if(data.type === 'members_update'){
+          const waitingMemberListHTML = data.waiting_members.map(member => `<li>${member}!</li>`);
+          const playingMemberListHTML = data.playing_members.map(member => `<li>${member}!</li>`);
+          const newWaitingHTML = waitingMemberListHTML.join('');
+          const newPlayingHTML = playingMemberListHTML.join('');
+          document.getElementById('waiting_members').innerHTML = newWaitingHTML;
+          document.getElementById('playing_members').innerHTML = newPlayingHTML;
+      
+        }
+        
+    };
+
+
+
+    ws.onerror = e => {
+        console.log(e);
+    }
+
+
+</script>

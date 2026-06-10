@@ -1,0 +1,8 @@
+{# sns > account > templates > account > login.html #}
+<h1>ログインフォーム</h1>
+
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="submit">ログインする</button>
+</form>

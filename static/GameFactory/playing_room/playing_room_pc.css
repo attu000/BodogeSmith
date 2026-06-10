@@ -1,0 +1,44 @@
+/* ゲーム全体のコンテナ */
+#game-container {
+    position: relative; /* 子要素を絶対配置するための基準点 */ 
+    width: 390px;  /* ゲーム画面のサイズ（例） */
+    height: 844px; /* ゲーム画面のサイズ（例） */
+    border: 2px solid #333;
+    background-color: #f0f0f0;
+    margin: 20px;
+    overflow: hidden; /* コンテナからはみ出した要素を隠す */
+}
+
+/* 生成されるカード置き場（フィールド）の基本スタイル */
+.field {
+    position: absolute; /* コンテナを基準に絶対配置 */
+    border: 2px dashed #666;
+    background-color: rgba(0, 128, 0, 0.2);
+    box-sizing: border-box; /* paddingとborderをwidth/heightに含める */
+    display: flex; /* 中のカードを並べるため */
+    flex-wrap: wrap;
+    padding: 5px;
+    gap: 5px;
+}
+
+/* フィールド内のカードのスタイル */
+.card {
+    width: 40px;
+    height: 60px;
+    background-color: #fff;
+    border: 1px solid #000;
+    border-radius: 4px;
+    box-shadow: 1px 1px 3px rgba(0,0,0,0.3);
+}
+
+/* 裏向きのカードのスタイル */
+.card.is-reverse {
+    background-color: #5577ff;
+}
+
+.personal_user_field {
+    flex: 1;
+    background-color: rgba(0, 43, 128, 0.2);
+    padding: 20px 0;
+    display: flex; /* 中のカードを並べるため */
+}

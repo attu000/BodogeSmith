@@ -1,0 +1,5 @@
+# chat.pyファイルからChatConsumerをインポート
+from .waiting_room_consumer import WaitingRoomConsumer
+
+# notification.pyファイルからNotificationConsumerをインポート
+from .playing_room_consumer import PlayingRoomConsumer
