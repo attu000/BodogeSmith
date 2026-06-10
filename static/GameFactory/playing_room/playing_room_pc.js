@@ -1,161 +1,86 @@
-//room
-const roomId = JSON.parse(document.getElementById('room-id').textContent);
-//通信先設定、通信開始
+// データ取得
+const roomId       = JSON.parse(document.getElementById('room-id').textContent);
+const gameDesignsData = JSON.parse(document.getElementById('game-designs-data').textContent);
+const isOwnerData  = JSON.parse(document.getElementById('is-owner-data').textContent);
+const roomNameData = JSON.parse(document.getElementById('room-name').textContent);
+
+// WebSocket接続
 const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
-const url = protocol + window.location.host + '/ws/game_factory/rooms/playing/'+ roomId ;
-const ws = new WebSocket(url);
- 
- 
+const ws = new WebSocket(protocol + window.location.host + '/ws/game_factory/rooms/playing/' + roomId);
 
-//Global 変数------------------------------------------------
-const {createApp, ref} = Vue;
+// Vue refs（ws.onmessage からも参照するためモジュールスコープに置く）
+const { createApp, ref, computed } = Vue;
 const field_card_design = ref({});
-const field_cardInfo = ref({});
+const field_cardInfo    = ref({});
+// GMのみ最初からパネルを開く。非GMは受け取り待ち。
+const showSelectPanel   = ref(isOwnerData);
 
-
-
-//Listener登録------------------------------------------------
-
-// id=choice_gameに対して
-const choiceGameLink = document.getElementById('choice_game');
-if(choiceGameLink){
-    choiceGameLink.addEventListener('click', (event) => {
-        event.preventDefault();
-        const choicePanel = document.getElementById('choice_panel');
-        choicePanel.style.display = 'block';
-    });
-}
-
-//id=choice_panelないの<a>をクリックしたら
-const choicePanel = document.getElementById('choice_panel');
-if(choicePanel){
-    choicePanel.addEventListener('click', (event) => {
-        if (event.target.tagName === 'A') {
-            event.preventDefault();
-            
-            const elementId = event.target.id;
-            const game_design_id = elementId.split('_')[1];
-            
-            const message = {
-                'type': 'game_choice',
-                'game_design_id': game_design_id
-            };
-            sendWebSocketMessage(message);
-        }
-    });
-}
-
-
-// id=test_moveに対して　後で消そう
-const testMove = document.getElementById('test_move');
-if(testMove){
-    testMove.addEventListener('click', (event) => {
-        event.preventDefault();
-        const message = {
-                'type': 'test_move',
-            };
-            sendWebSocketMessage(message);
-    });
-}
-
-
-//Vue.app登録-------------------------------------------------
-
-//field_card_design
-const FieldCardDesignManager = createApp({
+// Vue アプリ
+createApp({
     delimiters: ['[[', ']]'],
-    setup(){
-        
-        // ドラッグ開始時の処理
+    setup() {
+        const gameDesigns = ref(gameDesignsData);
+        const isOwner  = isOwnerData;
+        const roomName = roomNameData;
+        const hasGame  = computed(() => Object.keys(field_card_design.value).length > 0);
+
+        // ゲーム開始・変更（GMのみ呼ばれる）
+        const startGame = (gameDesignId) => {
+            console.log('startGame called:', gameDesignId, 'isOwner:', isOwner, 'wsState:', ws.readyState);
+            sendWsMessage({ type: 'start_game', game_design_id: gameDesignId });
+        };
+
+        // ドラッグ
         const handleDragStart = (event, card_id, from_path) => {
-            console.log(`Drag Start: card_id=${card_id}, from=${from_path.join('/')}`);
-            // ドラッグ中にデータを渡すために、dataTransferオブジェクトに情報を格納する
-            const data = JSON.stringify({
-                card_id: card_id,
-                from_path: from_path
-            });
-            event.dataTransfer.setData('application/json', data);
+            console.log('dragstart:', { card_id, from_path });
+            event.dataTransfer.setData('application/json', JSON.stringify({ card_id, from_path }));
         };
-
-        // ドラッグ中の要素がドロップ先の上にあるときの処理
-        const handleDragOver = (event) => {
-            // event.preventDefault()が呼ばれることで、その要素がドロップ先として有効になる
-            // Vueのテンプレートで @dragover.prevent としているので、この関数の中身は空でもOK
-        };
-
-        // ドロップ時の処理
         const handleDrop = (event, to_path) => {
-            // dataTransferからドラッグ開始時に格納したデータを取得
-            const data = JSON.parse(event.dataTransfer.getData('application/json'));
-            console.log(`Drop: card_id=${data.card_id}, from=${data.from_path.join('/')}, to=${to_path.join('/')}`);
-            
-            // WebSocketでサーバーにカード移動情報を送信
-            const message = {
-                type: 'move_card',
-                card_id: data.card_id,
-                from_path: data.from_path,
-                to_path: to_path,
-            };
-            sendWebSocketMessage(message);
+            event.preventDefault();
+            const raw = event.dataTransfer.getData('application/json');
+            if (!raw) { console.warn('drop: no data'); return; }
+            const { card_id, from_path } = JSON.parse(raw);
+            console.log('drop:', { card_id, from_path, to_path });
+            sendWsMessage({ type: 'move_card', card_id, from_path, to_path });
         };
 
-        // Vueテンプレートで使えるように関数を返す
         return {
-            field_card_design, 
-            field_cardInfo,
-            handleDragStart,
-            handleDragOver,
-            handleDrop
-        }
+            field_card_design, field_cardInfo, showSelectPanel,
+            gameDesigns, isOwner, roomName, hasGame,
+            startGame, handleDragStart, handleDrop,
+        };
     }
-}).mount('#field_card_design_app');
+}).mount('#app');
 
 
-
-//message受信→担当関数に命令を外注------------------------------
-
+// WebSocket メッセージ受信
 ws.onmessage = function(e) {
     const data = JSON.parse(e.data);
-    console.log(data);
-    
-    if(data.type == 'history_back_from_playing_room'){
-        window.history.back();
-    }
+    console.log('ws recv:', data);
 
-    else if(data.type == 'redirect'){
-        setTimeout(() => {
-            window.location.href = data.url;
-        }, 150);
-        
-    }
-    else if(data.type == 'field_card_design_update'){
-        console.log(data.field_card_design);
-        field_card_design.value = data.field_card_design;
-    }
+    if (data.type === 'redirect') {
+        setTimeout(() => { window.location.href = data.url; }, 150);
 
-    else if (data.type == 'field_cardInfo_update') {
-        console.log(data.field_cardInfo);
-        field_cardInfo.value = data.field_cardInfo;
+    } else if (data.type === 'field_card_design_update') {
+        field_card_design.value = data.field_card_design ?? {};
+        // ゲームデータが届いたら選択パネルを閉じる
+        if (Object.keys(field_card_design.value).length > 0) {
+            showSelectPanel.value = false;
+        }
+
+    } else if (data.type === 'field_cardInfo_update') {
+        field_cardInfo.value = data.field_cardInfo ?? {};
     }
 };
 
+ws.onerror = e => console.error('WebSocket error:', e);
 
-//データ送信------------------------------
-function sendWebSocketMessage(message) {
-    // ws変数がWebSocketインスタンスを指していると仮定
-    if (ws && ws.readyState === WebSocket.OPEN) {
+
+// WebSocket 送信ヘルパー
+function sendWsMessage(message) {
+    if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify(message));
     } else {
-        console.warn('WebSocket is not open. Message not sent:', message);
+        console.warn('WebSocket not open:', message);
     }
 }
-
-
-
-// エラー記録処理---------------------------
-ws.onerror = e => {
-    console.log(e);
-}
-
-
-//命令外注先の担当関数-------------------------

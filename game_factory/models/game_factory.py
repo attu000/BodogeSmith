@@ -48,6 +48,7 @@ class GameFactory:
         game = Game(
             _name=game_design.name,
             _field_card_design_dict=field_card_design_dict,
+            _game_design_id=game_design.id,
         )
 
         # --- 2. そのほか必要情報を要件に従って構築 ---

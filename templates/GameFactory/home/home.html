@@ -1,22 +1,217 @@
-{# home.html #}
-<h1>Home</h1>
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>BodogeSmith - Home</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
-{% if user.is_authenticated %}
-    <a>UserName: {{ user.username }} |</a>
-    <a href="{% url 'logout' %}">ログアウト</a>
-    <hr>
-    <a href="{% url 'game_factory:create_room' %}">部屋を作る</a>
-    <a href="{% url 'game_factory:join_room' %}">部屋に参加</a>
-    <a href="{% url 'game_factory:create_game_design' %}">ゲームを作る</a>
-{% else %}
-    <a>Unknown User |</a>
-    <a href="{% url 'login' %}">ログイン</a>
-    <a href="{% url 'signup' %}">新規登録</a>
-    <hr>
-{% endif %}
+    body {
+      font-family: sans-serif;
+      background: #f5f5f5;
+      color: #333;
+    }
 
+    /* ナビゲーション */
+    nav {
+      background: #2c3e50;
+      color: white;
+      padding: 12px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    nav .brand {
+      font-size: 1.2rem;
+      font-weight: bold;
+      letter-spacing: 0.05em;
+    }
+    nav .nav-links {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+    }
+    nav a {
+      color: #ecf0f1;
+      text-decoration: none;
+      font-size: 0.9rem;
+    }
+    nav a:hover { text-decoration: underline; }
+    nav .user-name { color: #bdc3c7; font-size: 0.85rem; }
 
-{% for game_design in game_designs %}
-<br>
-<a href="{% url 'game_factory:edit_game_design' game_design.id %}">{{game_design.name}}</a>
-{% endfor %}
+    /* メインコンテンツ */
+    main {
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 0 24px;
+    }
+
+    /* セクションヘッダ */
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .section-header h2 {
+      font-size: 1.3rem;
+      color: #2c3e50;
+    }
+
+    /* ゲームデザイン一覧 */
+    .game-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .game-card {
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 16px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: box-shadow 0.15s;
+    }
+    .game-card:hover {
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .game-info .game-name {
+      font-size: 1.05rem;
+      font-weight: bold;
+      margin-bottom: 4px;
+    }
+    .game-meta {
+      font-size: 0.8rem;
+      color: #888;
+      display: flex;
+      gap: 12px;
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: 0.72rem;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-weight: bold;
+    }
+    .badge-published {
+      background: #e8f5e9;
+      color: #2e7d32;
+    }
+    .badge-draft {
+      background: #f5f5f5;
+      color: #888;
+      border: 1px solid #ddd;
+    }
+
+    /* ボタン */
+    .btn {
+      display: inline-block;
+      padding: 8px 18px;
+      border-radius: 6px;
+      font-size: 0.88rem;
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+    }
+    .btn-primary {
+      background: #3498db;
+      color: white;
+    }
+    .btn-primary:hover { background: #2980b9; }
+    .btn-secondary {
+      background: white;
+      color: #555;
+      border: 1px solid #ccc;
+    }
+    .btn-secondary:hover { background: #f0f0f0; }
+
+    /* 空状態 */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #aaa;
+    }
+    .empty-state p { margin-bottom: 16px; font-size: 0.95rem; }
+
+    /* ルームボタン群 */
+    .room-actions {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 40px;
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <span class="brand">BodogeSmith</span>
+  <div class="nav-links">
+    {% if user.is_authenticated %}
+      <span class="user-name">{{ user.username }}</span>
+      <a href="{% url 'logout' %}">ログアウト</a>
+    {% else %}
+      <a href="{% url 'login' %}">ログイン</a>
+      <a href="{% url 'signup' %}">新規登録</a>
+    {% endif %}
+  </div>
+</nav>
+
+<main>
+
+  {% if user.is_authenticated %}
+
+    <!-- ルーム操作 -->
+    <div class="room-actions">
+      <a class="btn btn-secondary" href="{% url 'game_factory:create_room' %}">部屋を作る</a>
+      <a class="btn btn-secondary" href="{% url 'game_factory:join_room' %}">部屋に参加</a>
+    </div>
+
+    <!-- ゲームデザイン一覧 -->
+    <div class="section-header">
+      <h2>マイゲーム</h2>
+      <a class="btn btn-primary" href="{% url 'game_factory:create_game_design' %}">+ 新規作成</a>
+    </div>
+
+    <div class="game-list">
+      {% if game_designs %}
+        {% for gd in game_designs %}
+        <div class="game-card">
+          <div class="game-info">
+            <div class="game-name">{{ gd.name }}</div>
+            <div class="game-meta">
+              <span>最大 {{ gd.player_limit }} 人</span>
+              <span>{{ gd.created_at|date:"Y/m/d" }}</span>
+              {% if gd.published %}
+                <span class="badge badge-published">公開中</span>
+              {% else %}
+                <span class="badge badge-draft">下書き</span>
+              {% endif %}
+            </div>
+          </div>
+          <a class="btn btn-secondary" href="{% url 'game_factory:edit_game_design' gd.id %}">編集</a>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="empty-state">
+          <p>まだゲームを作っていません。</p>
+          <a class="btn btn-primary" href="{% url 'game_factory:create_game_design' %}">はじめて作る</a>
+        </div>
+      {% endif %}
+    </div>
+
+  {% else %}
+    <div class="empty-state">
+      <p>BodogeSmith へようこそ。<br>ゲームを作るにはログインしてください。</p>
+      <a class="btn btn-primary" href="{% url 'login' %}">ログイン</a>
+    </div>
+  {% endif %}
+
+</main>
+
+</body>
+</html>

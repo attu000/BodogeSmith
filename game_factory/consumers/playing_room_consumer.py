@@ -86,44 +86,42 @@ class GameFactoryPlayingRoomConsumer(AsyncJsonWebsocketConsumer):
 
     async def receive_json(self, data):
         """ メッセージをjson形式で受け取ったとき、メッセージのtypeに応じて対応する。"""
-        message_type = data['type']#命令の種類
+        try:
+            message_type = data['type']
 
-        #gameを選択時
-        if message_type=='game_choice':
-            #本来はgame_design_idが送られてきて、GameFactoryからGameを作り、roomに登録し、更新されたfield_card_designをブロードキャストする。
-            #今はまだ、仮のJSONを送るだけにする
-            await self._create_and_set_game_from_design(data['game_design_id'])
-            await self._broadcast_field_card_design_update()
-            await self._broadcast_field_cardInfo_update()
+            # ゲーム開始・変更（GMのみ）
+            if message_type == 'start_game':
+                if self.user != self.owner:
+                    return
+                game_design_id = int(data['game_design_id'])
+                await self._start_game(game_design_id)
+                await self._broadcast_field_card_design_update()
+                await self._broadcast_field_cardInfo_update()
 
-        #ゲーム内の動作
-        elif message_type=='move_card':
-            card_id = data['card_id']
-            from_path = data['from_path']
-            to_path = data["to_path"]
+            # カード移動
+            elif message_type == 'move_card':
+                card_id = data['card_id']
+                from_path = data['from_path']
+                to_path = data['to_path']
+                print(f"move_card: card_id={card_id}, from={from_path}, to={to_path}")
+                await self._move_card_fromAtoB(card_id, from_path, to_path)
+                await self._broadcast_field_card_design_update()
+                await self._broadcast_field_cardInfo_update()
 
-            await self._move_card_fromAtoB(card_id, from_path, to_path)
-            await self._broadcast_field_card_design_update()
-            await self._broadcast_field_cardInfo_update()
-            
+            elif message_type == 'shuffle':
+                place = data['place'] if data['place'] != 'myself' else self.user.id
+                direct = data['direct']
+                await self._shuffle(place, direct)
+                await self._add_log(f'shuffle|{place}|{direct}|プレイヤー{self.user}が{place}をシャッフル')
 
-        elif  message_type=='shuffle':
-            print('shuffle')
-            place = data['place'] if data['place']!= 'myself' else self.user.id
-            direct = data['direct']
-            await self._shuffle(place, direct)
-            await self._add_log(f'shuffle|{place}|{direct}|プレイヤー{self.user}が{place}をシャッフル')
+            elif message_type == 'rewind':
+                await self._rewind()
 
-
-
-        elif message_type=='rewind':
-            print('rewind')
-            await self._rewind()
-
-        
-        elif message_type=='restart':
-            print('restart')
-            await self._init_game()
+        except Exception as e:
+            print(f"[ERROR] receive_json failed: {type(e).__name__}: {e}")
+            import traceback
+            traceback.print_exc()
+            await self.send_json({'type': 'error', 'message': str(e)})
 
 
         
@@ -284,12 +282,16 @@ class GameFactoryPlayingRoomConsumer(AsyncJsonWebsocketConsumer):
 
 
 
-    #ゲーム作成---------------------------------
     @database_sync_to_async
-    def _create_and_set_game_from_design(self,game_design_id):
-        print(f"USER{self.user} START CREATE AND SET GAME!!!!")
-        room = Room.objects.filter(id=self.room_id).first()
-        GameFactory.create_and_set_game(game_design_id, room)
+    def _start_game(self, game_design_id: int):
+        """ゲーム開始・変更。ゲームがあればrestart、なければ新規作成。"""
+        room = Room.objects.select_related('_game').filter(id=self.room_id).first()
+        if not room:
+            return
+        if room.game:
+            room.game.restart(game_design_id)
+        else:
+            GameFactory.create_and_set_game(game_design_id, room)
 
 
 

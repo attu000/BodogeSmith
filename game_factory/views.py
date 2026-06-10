@@ -141,17 +141,22 @@ def playing_room(request, room_id):
     if room.status == Room.RoomStatus.OPEN:
         return redirect('waiting_room', room_id=room.id)
     
-    # 選択可能なゲームを送る
     player_count = room._playing_members.count()
     playable_games = GameDesign.objects.filter(
         _published=True,
         _player_limit__gte=player_count
     )
+    game_designs_data = [
+        {'id': gd.id, 'name': gd.name, 'player_limit': gd.player_limit}
+        for gd in playable_games
+    ]
     context = {
         'room': room,
-        'game_designs': playable_games,
+        'player_count': player_count,
+        'game_designs_data': game_designs_data,
+        'is_owner': request.user == room.owner,
     }
-    
+
     return render(request, 'GameFactory/playing/playing_room.html', context)
 
 

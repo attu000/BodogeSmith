@@ -18,6 +18,9 @@ class Game(models.Model):
     """
     #基本情報
     _name = models.CharField("ゲームの名前", max_length=100)
+
+    # restart時に元のGameDesignを参照するために保持
+    _game_design_id = models.IntegerField("元のゲームデザインID", null=True, blank=True)
     _created_at = models.DateTimeField(auto_now_add=True)
 
     _players = models.ManyToManyField(
@@ -576,6 +579,40 @@ class Game(models.Model):
 
 
 
+
+
+    def restart(self, game_design_id: int = None):
+        """
+        ゲームを指定したGameDesign（省略時は同じDesign）の初期状態に完全リセットする。
+        """
+        from .game_design import GameDesign
+
+        if game_design_id is not None:
+            self._game_design_id = game_design_id
+
+        if self._game_design_id is None:
+            raise ValueError("このゲームにはGameDesignIDが設定されていません。")
+
+        game_design = GameDesign.objects.filter(pk=self._game_design_id).first()
+        if game_design is None:
+            raise ValueError(f"GameDesign(id={self._game_design_id})が見つかりません。")
+
+        # ログをリセット
+        self._game_log = []
+
+        # cacheobjを破棄して再初期化が走るようにする
+        for attr in ('_field_cardInfo_cacheobj', '_card_status_for_user_cacheobj'):
+            if hasattr(self, attr):
+                delattr(self, attr)
+
+        # field_card_designをGameDesignから再コピー
+        self._field_card_design_dict = game_design.field_card_design_cacheobj.dict()
+
+        # initialize_game_infoで全状態を再構築
+        cards = game_design.cards
+        players = self._players.all()
+        init_card_info_model = game_design.init_field_cardInfo_cacheobj.copy(deep=True)
+        self.initialize_game_info(cards, players, init_card_info_model)
 
 
     #--------------------------------------

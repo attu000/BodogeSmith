@@ -378,3 +378,7 @@ class GameDesign(models.Model):
     @property
     def creater(self):
         return self._creater
+
+    @property
+    def created_at(self):
+        return self._created_at

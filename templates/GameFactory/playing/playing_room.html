@@ -1,138 +1,234 @@
 {% load static %}
-
 <!DOCTYPE html>
-<html lang="ja"> 
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-        <title>カードゲーム！</title>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <title>Playing - BodogeSmith</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
-         
-    </head>
+    body {
+      font-family: sans-serif;
+      background: #1a1a2e;
+      color: #fff;
+      height: 100vh;
+      overflow: hidden;
+    }
 
-    <body>
-        <a>UserName: {{ user.username }} |</a>
-        <h2>部屋: {{ room.name }}</h2>
-        <p>オーナー: {{ room.owner.username }}</p>
-        {% if user == room.owner %}
-        <a id="choice_game">ゲームを選ぶ</a>
-        <a id="test_move">TEST_MOVE</a>
-        {% endif %}
+    /* ヘッダー */
+    #page-header {
+      position: fixed; top: 0; left: 0; right: 0; height: 44px;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(6px);
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 0 16px;
+      z-index: 50;
+      font-size: 0.85rem;
+    }
+    .header-left { display: flex; gap: 12px; align-items: center; }
+    .room-name { font-weight: bold; font-size: 1rem; }
+    .user-name { color: #aaa; }
 
-        <!--Vue-->
-        <div id="field_card_design_app">
-            <div id="game-container">
-                <!--category-->
-                <template v-for="(fieldTypes, category) in field_card_design">
-                    <!--field_type-->
-                    <template v-for="(fields, fieldTypeName) in fieldTypes">
-                        <!--field-->
-                        <div v-for="(field, fieldName) in fields"
-                            :key="fieldName"
-                            :id="fieldName"
-                            :class="['field', category.toLowerCase()]"
-                            :style="{
-                                left: field.design.position[0] + 'px', 
-                                top: field.design.position[1] + 'px',
-                                width: field.design.dimensions[0] + 'px',
-                                height: field.design.dimensions[1] + 'px'
-                            }"
-                            :data-field-type="category"
-                            :data-card-num-limit="field.card_num_limit.join(',')"
-                            :data-display-max="field.design.display_card_maxnum"
-                            :data-reversible="field.design.reversible"
-                            :data-init-reverse="field.design.init_reverse"
-                            @dragover.prevent="category=='Public'? handleDragOver: null"
-                            @drop="category === 'Public' ? handleDrop($event, [category, fieldTypeName]) : null">
+    /* ゲーム選択オーバーレイ */
+    .select-overlay {
+      position: fixed; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      z-index: 200;
+      transition: background 0.2s;
+    }
+    .select-overlay.has-game {
+      background: rgba(0, 0, 0, 0.72);
+    }
 
-                            
-                            <template v-if="field_cardInfo[category] && field_cardInfo[category][fieldTypeName] && field_cardInfo[category][fieldTypeName][fieldName]">
-                                <!--Public-->
-                                <template v-if="category === 'Public'">
-                                    <!--card-->
-                                    <div v-for="card in field_cardInfo[category][fieldTypeName][fieldName]" 
-                                    :key="card"
-                                    class="card"
-                                    :class="{ 'is-reverse': card.card_status_dict.reverse }"
-                                    draggable="true"
-                                    @dragstart="handleDragStart($event, card.card_info_dict.card_id, [category, fieldTypeName])">
-                                    [[card.card_info_dict.card_name]]
-                                    </div>
-                                </template>
+    .select-panel {
+      background: #fff; color: #333;
+      border-radius: 12px;
+      width: 90%; max-width: 460px;
+      max-height: 80vh; overflow-y: auto;
+      box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+    }
+    .select-panel-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 22px 24px 0;
+    }
+    .select-panel-header h2 { font-size: 1.1rem; font-weight: bold; }
+    .close-btn {
+      background: none; border: none; cursor: pointer;
+      font-size: 1.2rem; color: #bbb; padding: 4px 6px; line-height: 1;
+    }
+    .close-btn:hover { color: #555; }
 
-                                <!--Personal-->
-                                <template v-if="category === 'Personal'">
-                                    <!--user-->
-                                    <div v-for="(card_list ,user_id) in field_cardInfo[category][fieldTypeName][fieldName]"
-                                    :key="user_id"
-                                    class="personal_user_field"
-                                    @dragover.prevent="category=='Personal'? handleDragOver: null"
-                                    @drop="category === 'Personal' ? handleDrop($event, [category, fieldTypeName, user_id]) : null"
-                                    >
-                                        <!--card-->
-                                        <div v-for="card in card_list" 
-                                        :key="card"
-                                        class="card"
-                                        :class="{ 'is-reverse': card.card_status_dict.reverse }"
-                                        draggable="true"
-                                        @dragstart="handleDragStart($event, card.card_info_dict.card_id, [category, fieldTypeName, user_id])">
-                                        [[card.card_info_dict.card_name]]
-                                        </div>
-                                    </div>
-                                </template>
-                            </template>
-                        </div>
-                    </template>
-                </template>
-            </div>
+    .select-panel-body { padding: 14px 24px 24px; }
+    .player-count-note {
+      font-size: 0.78rem; color: #999; margin-bottom: 14px;
+    }
+
+    .game-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 13px 16px;
+      border: 1px solid #e8e8e8; border-radius: 8px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: background 0.12s, border-color 0.12s;
+    }
+    .game-item:last-child { margin-bottom: 0; }
+    .game-item:hover { background: #f0f7ff; border-color: #3498db; }
+    .game-item-name { font-weight: 600; font-size: 0.95rem; }
+    .game-item-meta { font-size: 0.78rem; color: #999; }
+
+    .empty-state {
+      text-align: center; padding: 48px 20px; color: #bbb;
+      font-size: 0.9rem;
+    }
+
+    /* ゲームフィールド */
+    #game-container {
+      position: relative;
+      width: 100vw;
+      height: calc(100vh - 44px);
+      margin-top: 44px;
+      overflow: hidden;
+    }
+    .field {
+      position: absolute;
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.06);
+    }
+    .card {
+      width: 56px; height: 76px;
+      border: 1px solid #ccc; border-radius: 4px;
+      background: #fff; color: #333;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 0.7rem; text-align: center;
+      cursor: grab; user-select: none;
+      margin: 2px;
+    }
+    .card.is-reverse { background: #2980b9; color: transparent; }
+    .personal_user_field { display: inline-block; vertical-align: top; }
+
+    /* ボタン */
+    .btn {
+      padding: 5px 14px; border-radius: 6px;
+      font-size: 0.82rem; cursor: pointer; border: none;
+    }
+    .btn-primary { background: #3498db; color: #fff; }
+    .btn-primary:hover { background: #2980b9; }
+  </style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ヘッダー -->
+  <div id="page-header">
+    <div class="header-left">
+      <span class="room-name">[[ roomName ]]</span>
+      <span class="user-name">{{ user.username }}</span>
+    </div>
+    <div v-if="isOwner && hasGame">
+      <button class="btn btn-primary" @click="showSelectPanel = true">ゲームを変える</button>
+    </div>
+  </div>
+
+  <!-- ゲーム選択オーバーレイ（GMのみ表示） -->
+  <div class="select-overlay" :class="{ 'has-game': hasGame }" v-if="isOwner" v-show="showSelectPanel">
+    <div class="select-panel">
+
+      <div class="select-panel-header">
+        <h2>ゲームを選択</h2>
+        <button class="close-btn" v-if="hasGame" @click="showSelectPanel = false">✕</button>
+      </div>
+
+      <div class="select-panel-body">
+        <p class="player-count-note">参加人数 {{ player_count }} 人 ／ 上限 {{ player_count }} 人以上のゲームを表示</p>
+
+        <div v-if="gameDesigns.length === 0" class="empty-state">
+          <p>条件に合う公開ゲームがありません</p>
         </div>
 
-
-
-
-        <!--choice-game-panel-->
-        <div id="choice_panel" style="display: none;">
-            {% for game_design in game_designs %}
-                <br>
-                <a id="game_{{ game_design.id }}">{{game_design.name}}</a>
-            {% endfor %}
+        <div v-for="gd in gameDesigns" :key="gd.id" class="game-item" @click="startGame(gd.id)">
+          <span class="game-item-name">[[ gd.name ]]</span>
+          <span class="game-item-meta">最大 [[ gd.player_limit ]] 人</span>
         </div>
+      </div>
 
-        {{ room.id|json_script:"room-id" }}
-    </body>
+    </div>
+  </div>
 
+  <!-- ゲームフィールド -->
+  <div id="game-container">
+    <template v-for="(fieldTypes, category) in field_card_design">
+      <template v-for="(fields, fieldTypeName) in fieldTypes">
+        <div v-for="(field, fieldName) in fields"
+             :key="fieldName"
+             :id="fieldName"
+             :class="['field', category.toLowerCase()]"
+             :style="{
+               left: field.design.position[0] + 'px',
+               top: field.design.position[1] + 'px',
+               width: field.design.dimensions[0] + 'px',
+               height: field.design.dimensions[1] + 'px'
+             }"
+             @dragover.prevent
+             @drop.prevent="category === 'Public' ? handleDrop($event, [category, fieldTypeName]) : null">
 
-    <script>
-        (function() {
-            // PC用とスマホ用のJSファイルのパスをDjangoのstaticタグで取得
-            const pc_script_url = "{% static 'GameFactory/playing_room/playing_room_pc.js' %}";
-            const sp_script_url = "{% static 'GameFactory/playing_room/playing_room_sp.js' %}";
-            const pc_css_url =    "{% static 'GameFactory/playing_room/playing_room_pc.css' %}";
-            const sp_css_url =    "{% static 'GameFactory/playing_room/playing_room_sp.css' %}";
+          <template v-if="field_cardInfo[category] && field_cardInfo[category][fieldTypeName] && field_cardInfo[category][fieldTypeName][fieldName]">
 
+            <template v-if="category === 'Public'">
+              <div v-for="card in field_cardInfo[category][fieldTypeName][fieldName]"
+                   :key="card.card_info_dict.card_id"
+                   class="card"
+                   :class="{ 'is-reverse': card.card_status_dict.reverse }"
+                   draggable="true"
+                   @dragover.prevent
+                   @drop.stop.prevent="handleDrop($event, [category, fieldTypeName])"
+                   @dragstart="handleDragStart($event, card.card_info_dict.card_id, [category, fieldTypeName])">
+                [[ card.card_info_dict.card_name ]]
+              </div>
+            </template>
 
-            // 画面幅が768pxより大きい場合はPCと判定 (この値は調整可能です)
-            const isPC = window.matchMedia('(min-width: 769px)').matches;
+            <template v-if="category === 'Personal'">
+              <div v-for="(card_list, user_id) in field_cardInfo[category][fieldTypeName][fieldName]"
+                   :key="user_id"
+                   class="personal_user_field"
+                   @dragover.prevent
+                   @drop.stop.prevent="handleDrop($event, [category, fieldTypeName, user_id])">
+                <div v-for="card in card_list"
+                     :key="card.card_info_dict.card_id"
+                     class="card"
+                     :class="{ 'is-reverse': card.card_status_dict.reverse }"
+                     draggable="true"
+                     @dragover.prevent
+                     @drop.stop.prevent="handleDrop($event, [category, fieldTypeName, user_id])"
+                     @dragstart="handleDragStart($event, card.card_info_dict.card_id, [category, fieldTypeName, user_id])">
+                  [[ card.card_info_dict.card_name ]]
+                </div>
+              </div>
+            </template>
 
-            // タグを動的に生成
-            const script = document.createElement('script');
-            const css = document.createElement('link');
-            css.rel="stylesheet";
-            
-            if (isPC) {
-                script.src = pc_script_url;
-                css.href = pc_css_url;
-                console.log("PC用のJavaScriptを読み込みます。");
-            } else {
-                script.src = sp_script_url;
-                css.href = pc_css_url;
-                console.log("スマートフォン用のJavaScriptを読み込みます。");
-            }
+          </template>
+        </div>
+      </template>
+    </template>
+  </div>
 
-            // bodyの末尾にタグを追加して実行
-            document.body.appendChild(script);
-            document.body.appendChild(css);
-        })();
-    </script>
+</div>
+
+{{ room.id|json_script:"room-id" }}
+{{ game_designs_data|json_script:"game-designs-data" }}
+{{ is_owner|json_script:"is-owner-data" }}
+{{ room.name|json_script:"room-name" }}
+
+<script>
+(function() {
+  const script = document.createElement('script');
+  script.src = "{% static 'GameFactory/playing_room/playing_room_pc.js' %}";
+  document.body.appendChild(script);
+})();
+</script>
+
+</body>
 </html>
