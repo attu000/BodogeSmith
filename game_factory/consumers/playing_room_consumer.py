@@ -103,7 +103,6 @@ class GameFactoryPlayingRoomConsumer(AsyncJsonWebsocketConsumer):
                 card_id = data['card_id']
                 from_path = data['from_path']
                 to_path = data['to_path']
-                print(f"move_card: card_id={card_id}, from={from_path}, to={to_path}")
                 await self._move_card_fromAtoB(card_id, from_path, to_path)
                 await self._broadcast_field_card_design_update()
                 await self._broadcast_field_cardInfo_update()

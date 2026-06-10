@@ -26,28 +26,42 @@ createApp({
 
         // ゲーム開始・変更（GMのみ呼ばれる）
         const startGame = (gameDesignId) => {
-            console.log('startGame called:', gameDesignId, 'isOwner:', isOwner, 'wsState:', ws.readyState);
             sendWsMessage({ type: 'start_game', game_design_id: gameDesignId });
         };
 
         // ドラッグ
         const handleDragStart = (event, card_id, from_path) => {
-            console.log('dragstart:', { card_id, from_path });
             event.dataTransfer.setData('application/json', JSON.stringify({ card_id, from_path }));
         };
+
         const handleDrop = (event, to_path) => {
             event.preventDefault();
             const raw = event.dataTransfer.getData('application/json');
-            if (!raw) { console.warn('drop: no data'); return; }
+            if (!raw) return;
             const { card_id, from_path } = JSON.parse(raw);
-            console.log('drop:', { card_id, from_path, to_path });
             sendWsMessage({ type: 'move_card', card_id, from_path, to_path });
+        };
+
+        // フィールドdiv直接のdropを処理
+        // Personalフィールドで personal_user_field の外に落ちた場合の fallback
+        const handleFieldDrop = (event, category, fieldTypeName, fieldName) => {
+            if (category === 'Public') {
+                handleDrop(event, [category, fieldTypeName]);
+            } else if (category === 'Personal') {
+                const users = field_cardInfo.value?.[category]?.[fieldTypeName]?.[fieldName];
+                if (users) {
+                    const firstUserId = Object.keys(users)[0];
+                    if (firstUserId !== undefined) {
+                        handleDrop(event, [category, fieldTypeName, firstUserId]);
+                    }
+                }
+            }
         };
 
         return {
             field_card_design, field_cardInfo, showSelectPanel,
             gameDesigns, isOwner, roomName, hasGame,
-            startGame, handleDragStart, handleDrop,
+            startGame, handleDragStart, handleDrop, handleFieldDrop,
         };
     }
 }).mount('#app');
@@ -56,7 +70,6 @@ createApp({
 // WebSocket メッセージ受信
 ws.onmessage = function(e) {
     const data = JSON.parse(e.data);
-    console.log('ws recv:', data);
 
     if (data.type === 'redirect') {
         setTimeout(() => { window.location.href = data.url; }, 150);
